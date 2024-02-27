@@ -1,5 +1,5 @@
 # enpeeem
-Serves a local npm registry with the option to proxy calls to a remote registry if not available locally.
+Serves a local npm registry with the option to proxy calls to a remote registry if packages are not available locally.
 
 ## Getting started
 Start enpeeem with proxy stashing enabled to proxy requests to a remote npm registry if the request is not found locally. Which is the case when starting out.

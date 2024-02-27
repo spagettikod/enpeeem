@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 )
@@ -13,10 +13,11 @@ var (
 	storageDir  string
 	addr        string
 	proxyNStash = false
+	logger      = slog.New(slog.NewTextHandler(os.Stderr, nil))
 )
 
 func init() {
-	flag.StringVar(&addr, "addr", "localhost:8080", "network address of local registry")
+	flag.StringVar(&addr, "addr", ":8080", "network address of local registry")
 	flag.StringVar(&registry, "registry", "https://registry.npmjs.org", "remote npm registry to use when the flag proxystash is set")
 	flag.BoolVar(&proxyNStash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
 	flag.Usage = printUsage
@@ -54,8 +55,8 @@ func main() {
 	http.HandleFunc("GET /{pkg}", pkgHandler)
 	http.HandleFunc("GET /{pkg}/-/{tarball}", tarballHandler)
 	http.HandleFunc("GET /{pkg}/{subpkg}/-/{tarball}", subpackageTarballHandler)
-	log.Printf("enpeeem, listening at %s", addr)
+	logger.Info("started enpeeem", "addr", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatalln(err)
+		logger.Error("server error", "cause", err)
 	}
 }

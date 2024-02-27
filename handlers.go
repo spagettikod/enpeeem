@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -27,7 +26,7 @@ func pkgHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	logOK(r, file)
+	logOK(r, file, "found locally")
 	w.Write(data)
 }
 
@@ -59,19 +58,19 @@ func commonTarball(w http.ResponseWriter, r *http.Request, pkg string) {
 		}
 		return
 	}
-	logOK(r, file)
+	logOK(r, file, "found locally")
 	w.Write(data)
 }
 
-func logOK(r *http.Request, file string) {
-	log.Printf("LOCAL  %s %s %v %s", r.Method, r.URL, http.StatusOK, file)
+func logOK(r *http.Request, file string, msg string) {
+	logger.Info(msg, "method", r.Method, "url", r.URL, "http_status", http.StatusOK, "file", file)
 }
 
 func logErr(w http.ResponseWriter, r *http.Request, status int, err error) {
 	if err != nil {
-		log.Printf("%s %s %v %s", r.Method, r.URL, status, err.Error())
+		logger.Error("error occurred", "method", r.Method, "url", r.URL, "http_status", status, "cause", err)
 	} else {
-		log.Printf("%s %s %v", r.Method, r.URL, status)
+		logger.Error("failed request", "method", r.Method, "url", r.URL, "http_status", status)
 	}
 	http.Error(w, http.StatusText(status), status)
 }

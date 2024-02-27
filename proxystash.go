@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -18,7 +17,6 @@ func proxyStash(w http.ResponseWriter, r *http.Request, url, dir, filename strin
 		return
 	}
 
-	log.Printf("REMOTE %s %s %v", resp.Request.Method, url, resp.StatusCode)
 	switch resp.StatusCode {
 	case http.StatusNotFound:
 		logErr(w, r, http.StatusNotFound, nil)
@@ -38,7 +36,7 @@ func proxyStash(w http.ResponseWriter, r *http.Request, url, dir, filename strin
 			logErr(w, r, http.StatusInternalServerError, err)
 			return
 		}
-		logOK(r, file)
+		logOK(r, file, "fetched remotely")
 		w.Write(data)
 	default:
 		logErr(w, r, http.StatusInternalServerError, fmt.Errorf("error calling %s responded with: %v %s", url, resp.StatusCode, resp.Status))

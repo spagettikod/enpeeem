@@ -1,69 +1,72 @@
 package main
 
 import (
+	"enpeeem/storage"
 	"errors"
-	"fmt"
-	"io/fs"
 	"net/http"
-	"os"
 	"path"
 )
 
 func pkgHandler(w http.ResponseWriter, r *http.Request) {
-	pkg := r.PathValue("pkg")
-	file := path.Join(storageDir, pkg, "package.json")
-	data, err := os.ReadFile(file)
+	asset, err := storage.NewPackument(registry, r.PathValue("pkg"))
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			if proxyNStash {
-				url := fmt.Sprintf("%s/%s", registry, pkg)
-				proxyStash(w, r, url, path.Join(storageDir, pkg), "package.json")
-			} else {
-				logErr(w, r, http.StatusNotFound, nil)
-			}
-		} else {
-			logErr(w, r, http.StatusInternalServerError, err)
-		}
+		logErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	logOK(r, file, "found locally")
-	w.Write(data)
+	assetHandler(w, r, asset)
 }
 
 func tarballHandler(w http.ResponseWriter, r *http.Request) {
-	pkg := r.PathValue("pkg")
-	commonTarball(w, r, pkg)
+	tarball, err := storage.NewTarball(registry, r.PathValue("pkg"), r.PathValue("tarball"))
+	if err != nil {
+		logErr(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	assetHandler(w, r, tarball)
 }
 
 func subpackageTarballHandler(w http.ResponseWriter, r *http.Request) {
-	pkg := r.PathValue("pkg")
-	subpkg := r.PathValue("subpkg")
-	commonTarball(w, r, path.Join(pkg, subpkg))
-}
-
-func commonTarball(w http.ResponseWriter, r *http.Request, pkg string) {
-	tarball := r.PathValue("tarball")
-	file := path.Join(storageDir, pkg, tarball)
-	data, err := os.ReadFile(file)
+	jointPkg := path.Join(r.PathValue("pkg"), r.PathValue("subpkg"))
+	tarball, err := storage.NewTarball(registry, jointPkg, r.PathValue("tarball"))
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			if proxyNStash {
-				url := fmt.Sprintf("%s/%s/-/%s", registry, pkg, tarball)
-				proxyStash(w, r, url, path.Join(storageDir, pkg), tarball)
-			} else {
-				logErr(w, r, http.StatusNotFound, nil)
-			}
-		} else {
-			logErr(w, r, http.StatusInternalServerError, err)
-		}
+		logErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	logOK(r, file, "found locally")
-	w.Write(data)
+	assetHandler(w, r, tarball)
 }
 
-func logOK(r *http.Request, file string, msg string) {
-	logger.Info(msg, "method", r.Method, "url", r.URL, "http_status", http.StatusOK, "file", file)
+func assetHandler(w http.ResponseWriter, r *http.Request, asset storage.Asset) {
+	if err := store.Get(&asset); err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			if !proxystash {
+				logErr(w, r, http.StatusNotFound, nil)
+				return
+			}
+			if err := asset.FetchRemotely(); err != nil {
+				if errors.Is(err, storage.ErrNotFound) {
+					logErr(w, r, http.StatusNotFound, nil)
+					return
+				}
+				logErr(w, r, http.StatusInternalServerError, err)
+				return
+			}
+			if err := store.Put(asset); err != nil {
+				logErr(w, r, http.StatusInternalServerError, err)
+				return
+			}
+			logOK(r, "fetched remotely")
+		} else {
+			logErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		logOK(r, "found locally")
+	}
+	w.Write(asset.Data)
+}
+
+func logOK(r *http.Request, msg string) {
+	logger.Info(msg, "method", r.Method, "url", r.URL, "http_status", http.StatusOK)
 }
 
 func logErr(w http.ResponseWriter, r *http.Request, status int, err error) {

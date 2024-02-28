@@ -1,6 +1,7 @@
 package main
 
 import (
+	"enpeeem/storage"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -9,17 +10,18 @@ import (
 )
 
 var (
-	registry    string
-	storageDir  string
-	addr        string
-	proxyNStash = false
-	logger      = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	registry   string
+	storageDir string
+	addr       string
+	proxystash = false
+	logger     = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	store      storage.Store
 )
 
 func init() {
 	flag.StringVar(&addr, "addr", ":8080", "network address of local registry")
 	flag.StringVar(&registry, "registry", "https://registry.npmjs.org", "remote npm registry to use when the flag proxystash is set")
-	flag.BoolVar(&proxyNStash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
+	flag.BoolVar(&proxystash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
 	flag.Usage = printUsage
 }
 
@@ -52,6 +54,7 @@ func parseArgs() {
 
 func main() {
 	parseArgs()
+	store = storage.NewFileStore(storageDir)
 	http.HandleFunc("GET /{pkg}", pkgHandler)
 	http.HandleFunc("GET /{pkg}/-/{tarball}", tarballHandler)
 	http.HandleFunc("GET /{pkg}/{subpkg}/-/{tarball}", subpackageTarballHandler)

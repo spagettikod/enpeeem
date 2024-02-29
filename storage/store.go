@@ -2,17 +2,6 @@ package storage
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-)
-
-type AssetType string
-
-const (
-	PackumentAssetType AssetType = "packument"
-	TarballAssetType   AssetType = "tarball"
 )
 
 var (
@@ -20,64 +9,14 @@ var (
 )
 
 type Store interface {
+	// Get fetches data for the given Asset from the Store. If not
+	// found it should return ErrNotFound, other errors are
+	// considered internal server errors.
 	Get(*Asset) error
+	// Put saves the given Asset in the Store. Errors returned
+	// should be considered as internal server errors.
 	Put(Asset) error
-}
-
-type Asset struct {
-	remoteRegistry string
-	Registry       string
-	Package        string
-	Name           string
-	Data           []byte
-	RemoteURL      string
-	Type           AssetType
-}
-
-func NewPackument(registry, pkg string) (Asset, error) {
-	u, err := url.Parse(registry)
-	if err != nil {
-		return Asset{}, err
-	}
-	return Asset{
-		remoteRegistry: registry,
-		Registry:       u.Host,
-		Package:        pkg,
-		Name:           "packument.json",
-		RemoteURL:      fmt.Sprintf("%s/%s", registry, pkg),
-		Type:           PackumentAssetType,
-	}, nil
-}
-
-func NewTarball(registry, pkg, name string) (Asset, error) {
-	u, err := url.Parse(registry)
-	if err != nil {
-		return Asset{}, err
-	}
-	return Asset{
-		remoteRegistry: registry,
-		Registry:       u.Host,
-		Package:        pkg,
-		Name:           name,
-		RemoteURL:      fmt.Sprintf("%s/%s/-/%s", registry, pkg, name),
-		Type:           TarballAssetType,
-	}, nil
-}
-
-func (asset *Asset) FetchRemotely() error {
-	resp, err := http.Get(asset.RemoteURL)
-	if err != nil {
-		return err
-	}
-
-	switch resp.StatusCode {
-	case http.StatusNotFound:
-		return ErrNotFound
-	case http.StatusOK:
-		defer resp.Body.Close()
-		asset.Data, err = io.ReadAll(resp.Body)
-		return err
-	default:
-		return fmt.Errorf("error calling %s responded with: %v %s", asset.RemoteURL, resp.StatusCode, resp.Status)
-	}
+	// Versions returns a list of versions available in the Store
+	// for the given Asset.
+	Versions(Asset) ([]string, error)
 }

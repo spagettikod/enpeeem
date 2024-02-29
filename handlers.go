@@ -4,39 +4,52 @@ import (
 	"enpeeem/storage"
 	"errors"
 	"net/http"
-	"path"
 )
 
-func pkgHandler(w http.ResponseWriter, r *http.Request) {
-	asset, err := storage.NewPackument(registry, r.PathValue("pkg"))
+func packageMetadataHandler(w http.ResponseWriter, r *http.Request) {
+	pkmt, err := storage.NewPackageMetadata(registry, r.PathValue("scope"), r.PathValue("pkg"))
 	if err != nil {
 		logErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	assetHandler(w, r, asset)
+
+	assetHandler(w, r, &pkmt.Asset)
+
+	if !proxystash {
+		versions, err := store.Versions(pkmt.Asset)
+		if err != nil {
+			logErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		pkmt.ReduceVersions(versions)
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(pkmt.Data)
 }
 
 func tarballHandler(w http.ResponseWriter, r *http.Request) {
-	tarball, err := storage.NewTarball(registry, r.PathValue("pkg"), r.PathValue("tarball"))
+	tarball, err := storage.NewTarball(registry, r.PathValue("scope"), r.PathValue("pkg"), r.PathValue("tarball"))
 	if err != nil {
 		logErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	assetHandler(w, r, tarball)
+	assetHandler(w, r, &tarball.Asset)
+	w.Write(tarball.Data)
 }
 
-func subpackageTarballHandler(w http.ResponseWriter, r *http.Request) {
-	jointPkg := path.Join(r.PathValue("pkg"), r.PathValue("subpkg"))
-	tarball, err := storage.NewTarball(registry, jointPkg, r.PathValue("tarball"))
-	if err != nil {
-		logErr(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	assetHandler(w, r, tarball)
-}
+// func scopedTarballHandler(w http.ResponseWriter, r *http.Request) {
+// 	tarball, err := storage.NewTarball(registry, r.PathValue("scope"), r.PathValue("pkg"), r.PathValue("tarball"))
+// 	if err != nil {
+// 		logErr(w, r, http.StatusInternalServerError, err)
+// 		return
+// 	}
+// 	assetHandler(w, r, &tarball.Asset)
+// 	w.Write(tarball.Data)
+// }
 
-func assetHandler(w http.ResponseWriter, r *http.Request, asset storage.Asset) {
-	if err := store.Get(&asset); err != nil {
+func assetHandler(w http.ResponseWriter, r *http.Request, asset *storage.Asset) {
+	if err := store.Get(asset); err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			if !proxystash {
 				logErr(w, r, http.StatusNotFound, nil)
@@ -50,7 +63,7 @@ func assetHandler(w http.ResponseWriter, r *http.Request, asset storage.Asset) {
 				logErr(w, r, http.StatusInternalServerError, err)
 				return
 			}
-			if err := store.Put(asset); err != nil {
+			if err := store.Put(*asset); err != nil {
 				logErr(w, r, http.StatusInternalServerError, err)
 				return
 			}
@@ -62,7 +75,6 @@ func assetHandler(w http.ResponseWriter, r *http.Request, asset storage.Asset) {
 	} else {
 		logOK(r, "found locally")
 	}
-	w.Write(asset.Data)
 }
 
 func logOK(r *http.Request, msg string) {

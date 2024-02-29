@@ -55,9 +55,10 @@ func parseArgs() {
 func main() {
 	parseArgs()
 	store = storage.NewFileStore(storageDir)
-	http.HandleFunc("GET /{pkg}", pkgHandler)
+	http.HandleFunc("GET /{pkg}", packageMetadataHandler)
+	http.HandleFunc("GET /{scope}/{pkg}", packageMetadataHandler)
 	http.HandleFunc("GET /{pkg}/-/{tarball}", tarballHandler)
-	http.HandleFunc("GET /{pkg}/{subpkg}/-/{tarball}", subpackageTarballHandler)
+	http.HandleFunc("GET /{scope}/{pkg}/-/{tarball}", tarballHandler)
 	logger.Info("started enpeeem", "addr", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		logger.Error("server error", "cause", err)

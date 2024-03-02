@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"enpeeem/storage"
+	"log/slog"
 	"path"
 	"slices"
 )
@@ -33,13 +34,12 @@ func FetchAll(pkg storage.Package, packageMetadata []byte) error {
 			continue
 		}
 
-		logger.Info("downloading tarball", "url", tarball.RemoteURL())
+		slog.Info("downloading tarball", "url", tarball.RemoteURL())
 		if err := fetchAndSave(tarball); err != nil {
-			logger.Error("failed to download tarball", "cause", err, "url", tarball.RemoteURL())
+			slog.Error("failed to download tarball", "cause", err, "url", tarball.RemoteURL())
 		}
 	}
 	return nil
-	// return store.Index(pkg)
 }
 
 func fetchAndSave(tarball storage.Tarball) error {

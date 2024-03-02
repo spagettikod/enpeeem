@@ -70,5 +70,7 @@ Flags:
         remote npm registry to use when the flag proxystash is set (default "https://registry.npmjs.org")
 ```
 
-### Reindexing
-When running enpeeem as a proxy the index is automatically maintained. Butr if you remove or add packages and/or tarballs in your local storage. You can re-index one or more packages using the `-index`-flags seen in the usage description.
+### Indexing
+When running enpeeem as a proxy the index is automatically maintained. If enpeeem find tarballs but no metadata file it creates the metadata file and saves it to disk. This file is then used for consecutive requests. If it can not read all tarballs those that could be read are added to the metadata and returned, but the file is not saved. Check your application output to find tarballs that can not be read.
+
+When you index a package with an existing metadata file only new files are added. Deleted tarballs are not removed from the metadata file. If you need to remove or re-index already indexed files you need to remove the metadata file and enpeeem will reindex it the next time it's requested.

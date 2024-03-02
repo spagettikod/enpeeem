@@ -15,5 +15,5 @@ type Store interface {
 	Packages() ([]Package, error)
 	Tarballs(Package) ([]Tarball, error)
 	GetTarball(Tarball) ([]byte, error)
-	Index(Package) error
+	Index(Package) (PackageMetadata, error)
 }

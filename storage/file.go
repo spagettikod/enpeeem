@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,6 +15,10 @@ import (
 
 const (
 	PackageMetadataAssetName = "metadata.json"
+)
+
+var (
+	ErrIndexIncomplete = errors.New("one or more tarball failed to be indexed")
 )
 
 type FileStore struct {
@@ -116,22 +121,25 @@ func (fstore FileStore) Tarballs(pkg Package) ([]Tarball, error) {
 	return tarballs, nil
 }
 
-func (fstore FileStore) Index(pkg Package) error {
+func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 	tarballs, err := fstore.Tarballs(pkg)
 	if err != nil {
-		return err
+		return PackageMetadata{}, err
 	}
 
+	slog.Debug("number of tarballs found", "tarballs", len(tarballs), "pkg", pkg.String())
 	pm := PackageMetadata{}
 	pkmdata, err := fstore.GetPackageMetadata(pkg)
 	if err != nil {
 		if !errors.Is(err, ErrNotFound) {
-			return fmt.Errorf("error opening existing package metadata file for %s: %w", pkg.String(), err)
+			return pm, fmt.Errorf("error opening existing package metadata file for %s: %w", pkg.String(), err)
 		}
+		slog.Debug("creating new package metadata, existing not found", "pkg", pkg.String())
 		pm = NewPackageMetadata("", pkg.Name, map[string]interface{}{})
 	} else {
+		slog.Debug("unmarshaling existing package metadata", "pkg", pkg.String())
 		if err := json.Unmarshal(pkmdata, &pm); err != nil {
-			return fmt.Errorf("error unmarshaling package metadata file for %s: %w", pkg.String(), err)
+			return pm, fmt.Errorf("error unmarshaling package metadata file for %s: %w", pkg.String(), err)
 		}
 	}
 
@@ -142,32 +150,48 @@ func (fstore FileStore) Index(pkg Package) error {
 		return found
 	})
 
+	slog.Debug("tarballs left after matching against exisiting ones", "tarballs", len(tarballs), "pkg", pkg.String())
+
+	failed := false
 	for _, tarball := range tarballs {
+		slog.Debug("loading tarball", "tarball", tarball.String(), "pkg", pkg.String())
 		data, err := fstore.GetTarball(tarball)
 		if err != nil {
-			return err
+			failed = true
+			slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
+			continue
 		}
+		slog.Debug("extracting package.json from tarball", "tarball", tarball.String(), "pkg", pkg.String())
 		pkgJson, err := tarball.PackageJsonFromTar(data)
 		if err != nil {
-			return err
+			failed = true
+			slog.Error("could not fetch package.json from tarball, skipping", "tarball", tarball.String(), "error", err)
+			continue
 		}
+		slog.Debug("parsing package.json", "tarball", tarball.String(), "pkg", pkg.String())
 		verNo, version, err := ParsePackageJson(tarball, pkgJson)
 		if err != nil {
-			return err
+			failed = true
+			slog.Error("could not parse package.json, skipping", "tarball", tarball.String(), "error", err)
+			continue
 		}
 		pm.Versions[verNo] = version
 	}
 	pm.SetLatestVersion()
-	jb, err := json.MarshalIndent(pm, "", "   ")
-	if err != nil {
-		return err
+	if failed {
+		return pm, ErrIndexIncomplete
+	} else {
+		jb, err := json.MarshalIndent(pm, "", "   ")
+		if err != nil {
+			return pm, err
+		}
+		slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName))
+		return pm, os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
 	}
-
-	return os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
 }
 
 func fileVersion(pkgName, filename string) string {
-	if filename == "" {
+	if filename == "" || pkgName == "" {
 		return ""
 	}
 	begin := len(pkgName) + 1

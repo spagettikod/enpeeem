@@ -2,6 +2,7 @@ package main
 
 import (
 	"enpeeem/storage"
+	"log/slog"
 	"sync"
 
 	"github.com/schollz/progressbar/v3"
@@ -10,7 +11,7 @@ import (
 func reindexAll() int {
 	pkgs, err := store.Packages()
 	if err != nil {
-		logger.Error("failed to list packages", "cause", err)
+		slog.Error("failed to list packages", "cause", err)
 	}
 	var bar *progressbar.ProgressBar
 	wg := sync.WaitGroup{}
@@ -37,15 +38,15 @@ func reindexAll() int {
 func reindexPackage(pkguri string) int {
 	pkg, err := storage.PackageMetadataFromURI(pkguri)
 	if err != nil {
-		logger.Error("failed to parse package uri", "cause", err)
+		slog.Error("failed to parse package uri", "cause", err)
 		return 1
 	}
 	return indexPackage(pkg)
 }
 
 func indexPackage(pkg storage.Package) int {
-	if err := store.Index(pkg); err != nil {
-		logger.Error("error indexing package", "cause", err, "package", pkg.String())
+	if _, err := store.Index(pkg); err != nil {
+		slog.Error("error indexing package", "cause", err, "package", pkg.String())
 		return 1
 	}
 	return 0

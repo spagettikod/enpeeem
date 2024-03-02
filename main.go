@@ -18,7 +18,6 @@ var (
 	progress     bool
 	indexPkg     string
 	fetchAll     bool
-	logger       = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	store        storage.Store
 	version      = "SET VERSION IN MAKEFILE"
 	printVersion bool
@@ -77,6 +76,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	store = storage.NewFileStore(storageDir)
 	if indexAll {
 		os.Exit(reindexAll())
@@ -86,11 +87,10 @@ func main() {
 	}
 
 	http.HandleFunc("GET /{pkg}", packageMetadataHandler)
-	http.HandleFunc("GET /{scope}/{pkg}", packageMetadataHandler)
 	http.HandleFunc("GET /{pkg}/-/{tarball}", tarballHandler)
 	http.HandleFunc("GET /{scope}/{pkg}/-/{tarball}", tarballHandler)
-	logger.Info("started enpeeem", "addr", addr)
+	slog.Info("started enpeeem", "addr", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		logger.Error("server error", "cause", err)
+		slog.Error("server error", "cause", err)
 	}
 }

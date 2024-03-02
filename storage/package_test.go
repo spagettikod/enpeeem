@@ -4,6 +4,42 @@ import (
 	"testing"
 )
 
+func TestNewPackage(t *testing.T) {
+	type Test struct {
+		Registry string
+		Scope    string
+		Name     string
+	}
+	tests := []Test{
+		{
+			Registry: "registry.npmjs.org",
+			Scope:    "",
+			Name:     "ansi-styles",
+		},
+		{
+			Registry: "registry.npmjs.org",
+			Scope:    "@babel",
+			Name:     "parser",
+		},
+	}
+
+	for _, test := range tests {
+		pkg, err := NewPackage(test.Registry, test.Scope, test.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if pkg.Registry != test.Registry {
+			t.Errorf("expected %s got %s", test.Registry, pkg.Registry)
+		}
+		if pkg.Scope != test.Scope {
+			t.Errorf("expected %s got %s", test.Scope, pkg.Scope)
+		}
+		if pkg.Name != test.Name {
+			t.Errorf("expected %s got %s", test.Name, pkg.Name)
+		}
+	}
+}
+
 func TestPackageMetadataFromURI(t *testing.T) {
 	type Test struct {
 		Test     string

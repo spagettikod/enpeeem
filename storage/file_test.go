@@ -6,19 +6,21 @@ import (
 
 func TestFileVersion(t *testing.T) {
 	type Test struct {
-		Test     string
-		Expected string
+		PackageName string
+		Filename    string
+		Expected    string
 	}
 	tests := []Test{
-		{Test: "create-vite-5.0.0.tgz", Expected: "5.0.0"},
-		{Test: "", Expected: ""},
-		{Test: "create-vite-5.0.0", Expected: ""},
-		{Test: "create", Expected: ""},
-		{Test: "create-vite-5.0.0-beta.1.tgz", Expected: "5.0.0-beta.1"},
+		{PackageName: "create-vite", Filename: "create-vite-5.0.0.tgz", Expected: "5.0.0"},
+		{PackageName: "create-vite", Filename: "", Expected: ""},
+		{PackageName: "create-vite", Filename: "create-vite-5.0.0", Expected: ""},
+		{PackageName: "create-vite", Filename: "create", Expected: ""},
+		{PackageName: "create-vite", Filename: "create-vite-5.0.0-beta.1.tgz", Expected: "5.0.0-beta.1"},
+		{PackageName: "@types/react", Filename: "react-0.0.0.tgz", Expected: "0.0.0"},
 	}
 
 	for _, test := range tests {
-		actual := fileVersion("create-vite", test.Test)
+		actual := fileVersion(test.PackageName, test.Filename)
 		if actual != test.Expected {
 			t.Errorf("expected %s but got %s", test.Expected, actual)
 		}

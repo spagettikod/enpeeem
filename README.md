@@ -1,6 +1,26 @@
 # enpeeem
 Serves a local npm registry with the option to proxy calls to a remote registry if packages are not available locally.
 
+## Install
+enpeemem is a single binary and can be installed using these instructions:
+<details>
+<summary>macOS (Apple Silicon)</summary>
+
+```shell
+curl -OL https://github.com/spagettikod/enpeeem/releases/download/v1.0.0/enpeeem1.0.0.macos-arm64.tar.gz
+sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.macos-arm64.tar.gz
+```
+</details>
+
+<details>
+<summary>Linux</summary>
+
+```shell
+curl -OL https://github.com/spagettikod/enpeeem/releases/download/v1.0.0/enpeeem1.0.0.linux-amd64.tar.gz
+sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.linux-amd64.tar.gz
+```
+</details>
+
 ## Getting started
 Start enpeeem with proxy stashing enabled to proxy requests to a remote npm registry if the request is not found locally. Which is the case when starting out.
 

@@ -10,15 +10,17 @@ import (
 )
 
 var (
-	registry   string
-	storageDir string
-	addr       string
-	proxystash bool
-	indexAll   bool
-	progress   bool
-	indexPkg   string
-	logger     = slog.New(slog.NewTextHandler(os.Stderr, nil))
-	store      storage.Store
+	registry     string
+	storageDir   string
+	addr         string
+	proxystash   bool
+	indexAll     bool
+	progress     bool
+	indexPkg     string
+	logger       = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	store        storage.Store
+	version      = "SET VERSION IN MAKEFILE"
+	printVersion bool
 )
 
 func init() {
@@ -26,6 +28,7 @@ func init() {
 	flag.StringVar(&registry, "registry", "https://registry.npmjs.org", "remote npm registry to use when the flag proxystash is set")
 	flag.BoolVar(&indexAll, "index-all", false, "re-index all packages")
 	flag.BoolVar(&progress, "progress", false, "show progress where applicable")
+	flag.BoolVar(&printVersion, "version", false, "print version")
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
 	flag.Usage = printUsage
@@ -50,6 +53,9 @@ Flags:
 func parseArgs() {
 	flag.Parse()
 	args := flag.Args()
+	if printVersion {
+		return
+	}
 	if len(args) != 1 {
 		fmt.Println("error: too few arguments")
 		printUsage()
@@ -60,8 +66,13 @@ func parseArgs() {
 
 func main() {
 	parseArgs()
-	store = storage.NewFileStore(storageDir)
 
+	if printVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
+	store = storage.NewFileStore(storageDir)
 	if indexAll {
 		os.Exit(reindexAll())
 	}

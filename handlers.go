@@ -3,79 +3,92 @@ package main
 import (
 	"enpeeem/storage"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
+const (
+	AbbreviatedPackageMetadataContentType = "application/vnd.npm.install-v1+json"
+)
+
 func packageMetadataHandler(w http.ResponseWriter, r *http.Request) {
-	pkmt, err := storage.NewPackageMetadata(registry, r.PathValue("scope"), r.PathValue("pkg"))
+	pkg, err := storage.NewPackage(registry, r.PathValue("scope"), r.PathValue("pkg"))
 	if err != nil {
 		logErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	assetHandler(w, r, &pkmt.Asset)
-
-	if !proxystash {
-		versions, err := store.Versions(pkmt.Asset)
+	// don't use local storage when proxying, otherwise we won't be able to
+	// fetch packages we don't have in the local storage
+	if proxystash {
+		data, err := storage.FetchPackageMetadataRemotely(pkg)
 		if err != nil {
-			logErr(w, r, http.StatusInternalServerError, err)
-			return
-		}
-		pkmt.ReduceVersions(versions)
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(pkmt.Data)
-}
-
-func tarballHandler(w http.ResponseWriter, r *http.Request) {
-	tarball, err := storage.NewTarball(registry, r.PathValue("scope"), r.PathValue("pkg"), r.PathValue("tarball"))
-	if err != nil {
-		logErr(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	assetHandler(w, r, &tarball.Asset)
-	w.Write(tarball.Data)
-}
-
-// func scopedTarballHandler(w http.ResponseWriter, r *http.Request) {
-// 	tarball, err := storage.NewTarball(registry, r.PathValue("scope"), r.PathValue("pkg"), r.PathValue("tarball"))
-// 	if err != nil {
-// 		logErr(w, r, http.StatusInternalServerError, err)
-// 		return
-// 	}
-// 	assetHandler(w, r, &tarball.Asset)
-// 	w.Write(tarball.Data)
-// }
-
-func assetHandler(w http.ResponseWriter, r *http.Request, asset *storage.Asset) {
-	if err := store.Get(asset); err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			if !proxystash {
+			if errors.Is(err, storage.ErrNotFound) {
 				logErr(w, r, http.StatusNotFound, nil)
 				return
 			}
-			if err := asset.FetchRemotely(); err != nil {
-				if errors.Is(err, storage.ErrNotFound) {
-					logErr(w, r, http.StatusNotFound, nil)
-					return
-				}
-				logErr(w, r, http.StatusInternalServerError, err)
-				return
-			}
-			if err := store.Put(*asset); err != nil {
-				logErr(w, r, http.StatusInternalServerError, err)
-				return
-			}
-			logOK(r, "fetched remotely")
-		} else {
 			logErr(w, r, http.StatusInternalServerError, err)
 			return
 		}
-	} else {
-		logOK(r, "found locally")
+		logOK(r, "metadata fetched remotely")
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(data)
+		return
 	}
+
+	data, err := store.GetPackageMetadata(pkg)
+	if errors.Is(err, storage.ErrNotFound) {
+		logErr(w, r, http.StatusNotFound, nil)
+		return
+	}
+	logOK(r, "metadata found locally")
+	w.Header().Add("Content-Type", AbbreviatedPackageMetadataContentType)
+
+	w.Write(data)
 }
+
+func tarballHandler(w http.ResponseWriter, r *http.Request) {
+	pkg, err := storage.NewPackage(registry, r.PathValue("scope"), r.PathValue("pkg"))
+	if err != nil {
+		logErr(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	tarball := storage.NewTarball(pkg, r.PathValue("tarball"))
+	data, err := store.GetTarball(tarball)
+	if errors.Is(err, storage.ErrNotFound) {
+		if !proxystash {
+			logErr(w, r, http.StatusNotFound, nil)
+			return
+		}
+		data, err = tarball.FetchRemotely()
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				logErr(w, r, http.StatusNotFound, nil)
+				return
+			}
+			logErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		if err := store.PutTarball(tarball, data); err != nil {
+			logErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		logOK(r, "tarball fetched remotely")
+	} else {
+		logOK(r, "tarball found locally")
+	}
+	w.Write(data)
+}
+
+/*
+
+===============================================================================
+
+UTILS
+
+===============================================================================
+
+*/
 
 func logOK(r *http.Request, msg string) {
 	logger.Info(msg, "method", r.Method, "url", r.URL, "http_status", http.StatusOK)
@@ -88,4 +101,10 @@ func logErr(w http.ResponseWriter, r *http.Request, status int, err error) {
 		logger.Error("failed request", "method", r.Method, "url", r.URL, "http_status", status)
 	}
 	http.Error(w, http.StatusText(status), status)
+}
+
+func printHeaders(r *http.Request) {
+	for k, v := range r.Header {
+		fmt.Printf("%s: %s\n", k, v)
+	}
 }

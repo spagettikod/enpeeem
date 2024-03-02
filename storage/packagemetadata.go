@@ -2,76 +2,41 @@ package storage
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/url"
+	"io"
+	"net/http"
 	"slices"
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
 )
 
-const (
-	PackageMetadataAssetName = "metadata.json"
-)
-
 type PackageMetadata struct {
-	Asset
+	DistTags map[string]string      `json:"dist-tags"`
+	Name     string                 `json:"name"`
+	Versions map[string]interface{} `json:"versions"`
 }
 
-func NewPackageMetadata(registry, scope, pkg string) (PackageMetadata, error) {
-	u, err := url.Parse(registry)
-	if err != nil {
-		return PackageMetadata{}, err
-	}
+func NewPackageMetadata(latestVersion, packageName string, versions map[string]interface{}) PackageMetadata {
 	return PackageMetadata{
-		Asset{
-			remoteRegistry: registry,
-			Registry:       u.Host,
-			Scope:          scope,
-			Package:        pkg,
-			Name:           PackageMetadataAssetName,
-			RemoteURL:      fmt.Sprintf("%s/%s", registry, pkg),
-		},
-	}, nil
+		DistTags: map[string]string{"latest": latestVersion},
+		Name:     packageName,
+		Versions: versions,
+	}
 }
 
-func (pm *PackageMetadata) ReduceVersions(versions []string) error {
-	meta := map[string]interface{}{}
-	if err := json.Unmarshal(pm.Data, &meta); err != nil {
-		return err
+func ParsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {
+	raw := map[string]interface{}{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return "", raw, err
 	}
-	metaDistTags, ok := meta["dist-tags"].(map[string]interface{})
-	if !ok {
-		return errors.New("versions error")
-	}
-	metaVersions, ok := meta["versions"].(map[string]interface{})
-	if !ok {
-		return errors.New("versions error")
-	}
-	var err error
-
-	versionsToKeep := map[string]interface{}{}
-	for version, data := range metaVersions {
-		if slices.Contains(versions, version) {
-			versionsToKeep[version] = data
-		}
-	}
-	meta["versions"] = versionsToKeep
-
-	// npm expected the latest version to match available versions
-	metaDistTags["latest"] = LatestStableVersion(versions)
-	meta["dist-tags"] = metaDistTags
-
-	pm.Data, err = json.MarshalIndent(meta, "", "   ")
-	if err != nil {
-		return err
-	}
-	return nil
+	raw["dist"] = map[string]string{"tarball": tarball.RemoteURL()}
+	version, _ := raw["version"].(string)
+	return version, raw, nil
 }
 
 // LatestStableVersion returns the latest stable version from an array of semver versions.
-func LatestStableVersion(versions []string) string {
+func latestStableVersion(versions []string) string {
 	if len(versions) == 0 {
 		return ""
 	}
@@ -95,4 +60,21 @@ func LatestStableVersion(versions []string) string {
 	}
 
 	return vs[len(vs)-1].String()
+}
+
+func FetchPackageMetadataRemotely(pkg Package) ([]byte, error) {
+	resp, err := http.Get(pkg.RemoteURL())
+	if err != nil {
+		return []byte{}, err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusNotFound:
+		return []byte{}, ErrNotFound
+	case http.StatusOK:
+		defer resp.Body.Close()
+		return io.ReadAll(resp.Body)
+	default:
+		return []byte{}, fmt.Errorf("error calling %s responded with: %v %s", pkg.RemoteURL(), resp.StatusCode, resp.Status)
+	}
 }

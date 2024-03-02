@@ -9,14 +9,11 @@ var (
 )
 
 type Store interface {
-	// Get fetches data for the given Asset from the Store. If not
-	// found it should return ErrNotFound, other errors are
-	// considered internal server errors.
-	Get(*Asset) error
-	// Put saves the given Asset in the Store. Errors returned
-	// should be considered as internal server errors.
-	Put(Asset) error
-	// Versions returns a list of versions available in the Store
-	// for the given Asset.
-	Versions(Asset) ([]string, error)
+	GetPackageMetadata(Package) ([]byte, error)
+	PutPackage(Package, []byte) error
+	PutTarball(Tarball, []byte) error
+	Packages() ([]Package, error)
+	Tarballs(Package) ([]Tarball, error)
+	GetTarball(Tarball) ([]byte, error)
+	Index(Package) error
 }

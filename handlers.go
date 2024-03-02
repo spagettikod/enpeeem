@@ -31,6 +31,13 @@ func packageMetadataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logOK(r, "metadata fetched remotely")
+		if fetchAll {
+			go func() {
+				if err := FetchAll(pkg, data); err != nil {
+					logger.Error("error while fetching all tarballs", "cause", err)
+				}
+			}()
+		}
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(data)
 		return
@@ -70,6 +77,10 @@ func tarballHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := store.PutTarball(tarball, data); err != nil {
+			logErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		if err := store.Index(pkg); err != nil {
 			logErr(w, r, http.StatusInternalServerError, err)
 			return
 		}

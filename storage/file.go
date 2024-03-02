@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -45,21 +46,8 @@ func (fstore FileStore) PutTarball(tarball Tarball, data []byte) error {
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
-	if err := os.WriteFile(file, data, 0644); err != nil {
-		return err
-	}
-	return fstore.Index(tarball.Package())
+	return os.WriteFile(file, data, 0644)
 }
-
-// func (fstore FileStore) Get(asset Asset) ([]byte, error) {
-// 	data, err := os.ReadFile(fstore.filename(asset))
-// 	if err != nil {
-// 		if errors.Is(err, fs.ErrNotExist) {
-// 			return data, ErrNotFound
-// 		}
-// 	}
-// 	return data, err
-// }
 
 func (fstore FileStore) GetPackageMetadata(pkg Package) ([]byte, error) {
 	filename := fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName)
@@ -128,27 +116,32 @@ func (fstore FileStore) Tarballs(pkg Package) ([]Tarball, error) {
 	return tarballs, nil
 }
 
-func fileVersion(pkg, filename string) string {
-	if filename == "" {
-		return ""
-	}
-	begin := len(pkg) + 1
-	end := strings.LastIndex(filename, ".tgz")
-	if begin < 0 || end < 0 {
-		return ""
-	}
-	ver := filename[begin:end]
-	return ver
-}
-
 func (fstore FileStore) Index(pkg Package) error {
 	tarballs, err := fstore.Tarballs(pkg)
 	if err != nil {
 		return err
 	}
 
-	verNos := []string{}
-	versions := map[string]interface{}{}
+	pm := PackageMetadata{}
+	pkmdata, err := fstore.GetPackageMetadata(pkg)
+	if err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("error opening existing package metadata file for %s: %w", pkg.String(), err)
+		}
+		pm = NewPackageMetadata("", pkg.Name, map[string]interface{}{})
+	} else {
+		if err := json.Unmarshal(pkmdata, &pm); err != nil {
+			return fmt.Errorf("error unmarshaling package metadata file for %s: %w", pkg.String(), err)
+		}
+	}
+
+	// we don't need to process tarballs already indexed in the package metadata file
+	tarballs = slices.DeleteFunc(tarballs, func(tarball Tarball) bool {
+		v := fileVersion(pkg.Name, tarball.Name)
+		_, found := pm.Versions[v]
+		return found
+	})
+
 	for _, tarball := range tarballs {
 		data, err := fstore.GetTarball(tarball)
 		if err != nil {
@@ -162,25 +155,26 @@ func (fstore FileStore) Index(pkg Package) error {
 		if err != nil {
 			return err
 		}
-		verNos = append(verNos, verNo)
-		versions[verNo] = version
+		pm.Versions[verNo] = version
 	}
-	pm := NewPackageMetadata(latestStableVersion(verNos), pkg.Name, versions)
+	pm.SetLatestVersion()
 	jb, err := json.MarshalIndent(pm, "", "   ")
 	if err != nil {
 		return err
 	}
-	tmpfile, err := os.CreateTemp(os.TempDir(), "enpeeem_*.json")
-	if err != nil {
-		return err
-	}
-	if _, err := tmpfile.Write(jb); err != nil {
-		tmpfile.Close()
-		return err
-	}
-	if err := tmpfile.Close(); err != nil {
-		return err
-	}
 
-	return os.Rename(tmpfile.Name(), fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName))
+	return os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
+}
+
+func fileVersion(pkgName, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	begin := len(pkgName) + 1
+	end := strings.LastIndex(filename, ".tgz")
+	if begin < 0 || end < 0 {
+		return ""
+	}
+	ver := filename[begin:end]
+	return ver
 }

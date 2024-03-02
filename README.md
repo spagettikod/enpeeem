@@ -7,7 +7,7 @@ enpeemem is a single binary and can be installed using these instructions:
 <summary>macOS (Apple Silicon)</summary>
 
 ```shell
-curl -OL https://github.com/spagettikod/enpeeem/releases/download/v1.0.0/enpeeem1.0.0.macos-arm64.tar.gz
+curl -OL https://github.com/spagettikod/enpeeem/releases/download/1.0.0/enpeeem1.0.0.macos-arm64.tar.gz
 sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.macos-arm64.tar.gz
 ```
 </details>
@@ -16,7 +16,7 @@ sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.macos-arm64.tar.gz
 <summary>Linux</summary>
 
 ```shell
-curl -OL https://github.com/spagettikod/enpeeem/releases/download/v1.0.0/enpeeem1.0.0.linux-amd64.tar.gz
+curl -OL https://github.com/spagettikod/enpeeem/releases/download/1.0.0/enpeeem1.0.0.linux-amd64.tar.gz
 sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.linux-amd64.tar.gz
 ```
 </details>

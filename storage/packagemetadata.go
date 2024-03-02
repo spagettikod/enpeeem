@@ -25,6 +25,14 @@ func NewPackageMetadata(latestVersion, packageName string, versions map[string]i
 	}
 }
 
+func (pm *PackageMetadata) SetLatestVersion() {
+	versions := []string{}
+	for k := range pm.Versions {
+		versions = append(versions, k)
+	}
+	pm.DistTags["latest"] = latestStableVersion(versions)
+}
+
 func ParsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {
 	raw := map[string]interface{}{}
 	if err := json.Unmarshal(data, &raw); err != nil {

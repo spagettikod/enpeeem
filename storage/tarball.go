@@ -97,12 +97,12 @@ func (tarball Tarball) String() string {
 
 func (tarball Tarball) PackageJsonFromTar(tgz []byte) ([]byte, error) {
 	if len(tgz) == 0 {
-		return []byte{}, fmt.Errorf("can not extract package/package.json, empty data")
+		return []byte{}, fmt.Errorf("can not extract package/package.json, from %s, empty data", tarball.String())
 	}
 	buffer := bytes.NewBuffer(tgz)
 	gzipReader, err := gzip.NewReader(buffer)
 	if err != nil {
-		return []byte{}, err
+		return []byte{}, fmt.Errorf("error in gzip reader opening %s: %w", tarball.pkg.String(), err)
 	}
 
 	tr := tar.NewReader(gzipReader)

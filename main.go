@@ -17,6 +17,7 @@ var (
 	indexAll     bool
 	progress     bool
 	indexPkg     string
+	fetchAll     bool
 	logger       = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	store        storage.Store
 	version      = "SET VERSION IN MAKEFILE"
@@ -29,6 +30,7 @@ func init() {
 	flag.BoolVar(&indexAll, "index-all", false, "re-index all packages")
 	flag.BoolVar(&progress, "progress", false, "show progress where applicable")
 	flag.BoolVar(&printVersion, "version", false, "print version")
+	flag.BoolVar(&fetchAll, "fetch-all", false, "download all tarbal versions at once if a tarball is not found locally")
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
 	flag.Usage = printUsage
@@ -60,6 +62,9 @@ func parseArgs() {
 		fmt.Println("error: too few arguments")
 		printUsage()
 		os.Exit(1)
+	}
+	if fetchAll && !proxystash {
+		fmt.Println("info: flag fetch-all is useless without the proxystash flag")
 	}
 	storageDir = args[0]
 }

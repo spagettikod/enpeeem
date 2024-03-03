@@ -1,4 +1,4 @@
-package main
+package handle
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"slices"
 )
 
-func FetchAll(pkg storage.Package, packageMetadata []byte) error {
+func FetchAll(store storage.Store, pkg storage.Package, packageMetadata []byte) error {
 	type PackageMetadata struct {
 		Versions map[string]struct {
 			Dist struct {
@@ -35,14 +35,14 @@ func FetchAll(pkg storage.Package, packageMetadata []byte) error {
 		}
 
 		slog.Info("downloading tarball", "url", tarball.RemoteURL())
-		if err := fetchAndSave(tarball); err != nil {
+		if err := fetchAndSave(store, tarball); err != nil {
 			slog.Error("failed to download tarball", "cause", err, "url", tarball.RemoteURL())
 		}
 	}
 	return nil
 }
 
-func fetchAndSave(tarball storage.Tarball) error {
+func fetchAndSave(store storage.Store, tarball storage.Tarball) error {
 	data, err := tarball.FetchRemotely()
 	if err != nil {
 		return err

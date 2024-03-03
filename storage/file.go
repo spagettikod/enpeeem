@@ -17,16 +17,12 @@ const (
 	PackageMetadataAssetName = "metadata.json"
 )
 
-var (
-	ErrIndexIncomplete = errors.New("one or more tarball failed to be indexed")
-)
-
 type FileStore struct {
 	dir string
 }
 
-func NewFileStore(dir string) FileStore {
-	return FileStore{dir: dir}
+func NewFileStore(dir string) *FileStore {
+	return &FileStore{dir: dir}
 }
 
 func (fstore FileStore) assetDir(registry, scope, pkg string) string {
@@ -152,33 +148,26 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 		return found
 	})
 
-	slog.Debug("tarballs left after matching against exisiting ones", "tarballs", len(tarballs), "pkg", pkg.String())
+	slog.Debug("unindexed tarballs", "tarballs", len(tarballs), "pkg", pkg.String())
 
-	failed := false
 	for _, tarball := range tarballs {
 		slog.Debug("loading tarball", "tarball", tarball.String(), "pkg", pkg.String())
 		data, err := fstore.GetTarball(tarball)
 		if err != nil {
-			failed = true
 			slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
 		if err := pm.AddVersion(tarball, data); err != nil {
-			failed = true
 			slog.Error("error parsing tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
 	}
-	if failed {
-		return pm, ErrIndexIncomplete
-	} else {
-		jb, err := json.MarshalIndent(pm, "", "   ")
-		if err != nil {
-			return pm, err
-		}
-		slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName))
-		return pm, os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
+	jb, err := json.MarshalIndent(pm, "", "   ")
+	if err != nil {
+		return pm, err
 	}
+	slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName))
+	return pm, os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
 }
 
 func fileVersion(pkgName, filename string) string {

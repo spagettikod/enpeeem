@@ -44,13 +44,13 @@ func TestPruneVersions(t *testing.T) {
 
 	tests := []Test{
 		{
-			PackageMetadata: PackageMetadata{
-				Versions: map[string]interface{}{
+			PackageMetadata: NewPackageMetadata("3.0.0", "create-vite",
+				map[string]interface{}{
 					"1.0.0": "",
 					"2.0.0": "",
 					"3.0.0": "",
 				},
-			},
+			),
 			Tarballs: []Tarball{NewTarball(pkg, "create-vite-1.0.0.tgz"), NewTarball(pkg, "create-vite-3.0.0.tgz")},
 			Expected: []string{"1.0.0", "3.0.0"},
 		},

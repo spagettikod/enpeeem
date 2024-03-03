@@ -22,7 +22,7 @@ sudo tar -C /usr/local/bin -xvf enpeeem1.0.0.linux-amd64.tar.gz
 </details>
 
 ## Getting started
-Start enpeeem with proxy stashing enabled to proxy requests to a remote npm registry if the request is not found locally. Which is the case when starting out.
+Start enpeeem in proxy mode to proxy requests to a remote npm registry. If the request resource is not found locally it's downloaded and stored.
 
 ```shell
 mkdir storage
@@ -58,6 +58,8 @@ Usage:
 Flags:
   -addr string
         network address of local registry (default ":8080")
+  -fetch-all
+        download all tarbal versions at once if a tarball is not found locally
   -index string
         re-index with given package URI, example registry.npmjs.org/@types/react
   -index-all
@@ -68,15 +70,35 @@ Flags:
         proxy and download to storage if file is not available at storage path
   -registry string
         remote npm registry to use when the flag proxystash is set (default "https://registry.npmjs.org")
+  -verbose
+        print debug information
+  -version
+        print version
 ```
 
 ### Indexing
-enpeeem maintans package metadata files that are returned to package managers on request. These files are stored in each package folder as `metadata.json`.
+enpeeem maintans package metadata files, these files are stored in each package folder as `metadata.json`.
 
-When running enpeeem as a proxy the index is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
+When running enpeeem as a proxy the package metadata is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
 
-When a metadata file is reindexed only new files are added, nothing is ever removed. Deleted tarballs are not removed from the metadata file. If you need to remove or re-index already indexed files you need to remove the metadata file and enpeeem will reindex it the next time it's requested.
+If you remove or add tarballs manually you can trigger a manual reindexing by calling the endpoint `/api/index/<registry>/<package>`.
+
+Example:
+```
+curl -X POST localhost:8080/api/index/registry.npmjs.org/typescript 
+```
+
+or for scoped packages:
+```
+curl -X POST localhost:8080/api/index/registry.npmjs.org/@types%2Freact
+```
+
+You can also run enpeeem with the `-index-all` or `-index` flags to reindex all packages or a single package.
+
+When package metadata is reindexed it's content is syncronized with tarballs found in storage. New tarballs are added to metadata and tarballs no longer found in storage are removed from metadata. If you want to reeindex all tarballs forcefully you need to remove the `metadata.json` file(s).
 
 #### Auto-indexing
 If running in local mode, only serving local files, it reads the local metadata files. If there is not metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
-When an error occurs during indexing of a tarball the metadata file is still created, without the erroneous tarball. The metadata file is then returned in the request but it's not saved for upcoming requests. The erroneous tarball is logged to output for you to follow up on.
+
+#### Indexing errors
+If metadata can not be read from the tarball, for some reason, errors are logged to output. The metadata file is still created but without tarballs that could not be read.

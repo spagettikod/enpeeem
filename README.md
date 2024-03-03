@@ -80,7 +80,7 @@ enpeeem maintains package metadata files, these files are stored in each package
 
 When running enpeeem as a proxy the package metadata is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
 
-## Manual indexing
+### Manual indexing
 If you remove or add tarballs manually you can trigger a manual reindexing by calling the endpoint `/api/index/<registry>/<package>`.
 
 Example:

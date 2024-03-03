@@ -1,4 +1,4 @@
-VERSION=1.0.0
+VERSION=1.1.0
 OUTPUT=_local/pkg
 .PHONY: build_linux build_macos pkg_linux pkg_macos all default clean setup test
 

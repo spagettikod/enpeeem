@@ -91,6 +91,10 @@ func (tarball Tarball) RemoteURL() string {
 	return remoteURL
 }
 
+func (tarball Tarball) Version() string {
+	return fileVersion(tarball.Package().Name, tarball.Name)
+}
+
 func (tarball Tarball) String() string {
 	return fmt.Sprintf("%s/%s", tarball.pkg.String(), tarball.Name)
 }

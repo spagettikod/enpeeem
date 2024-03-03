@@ -141,6 +141,8 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 		if err := json.Unmarshal(pkmdata, &pm); err != nil {
 			return pm, fmt.Errorf("error unmarshaling package metadata file for %s: %w", pkg.String(), err)
 		}
+		// remove metadata for tarballs that no longer exist on disk
+		pm.PruneVersions(tarballs)
 	}
 
 	// we don't need to process tarballs already indexed in the package metadata file
@@ -161,23 +163,12 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 			slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
-		slog.Debug("extracting package.json from tarball", "tarball", tarball.String(), "pkg", pkg.String())
-		pkgJson, err := tarball.PackageJsonFromTar(data)
-		if err != nil {
+		if err := pm.AddVersion(tarball, data); err != nil {
 			failed = true
-			slog.Error("could not fetch package.json from tarball, skipping", "tarball", tarball.String(), "error", err)
+			slog.Error("error parsing tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
-		slog.Debug("parsing package.json", "tarball", tarball.String(), "pkg", pkg.String())
-		verNo, version, err := ParsePackageJson(tarball, pkgJson)
-		if err != nil {
-			failed = true
-			slog.Error("could not parse package.json, skipping", "tarball", tarball.String(), "error", err)
-			continue
-		}
-		pm.Versions[verNo] = version
 	}
-	pm.SetLatestVersion()
 	if failed {
 		return pm, ErrIndexIncomplete
 	} else {

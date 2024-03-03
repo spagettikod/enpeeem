@@ -54,6 +54,7 @@ func PackageMetadata(w http.ResponseWriter, r *http.Request) {
 	pkg, err := storage.NewPackage(cfg.Registry, s, p)
 	if err != nil {
 		logErr(w, r, http.StatusInternalServerError, err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -64,9 +65,11 @@ func PackageMetadata(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				logErr(w, r, http.StatusNotFound, nil)
+				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 				return
 			}
 			logErr(w, r, http.StatusInternalServerError, err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		logOK(r, "metadata fetched remotely")
@@ -85,10 +88,12 @@ func PackageMetadata(w http.ResponseWriter, r *http.Request) {
 	data, err := fetchOrIndexLocally(cfg.Store, pkg)
 	if errors.Is(err, storage.ErrNotFound) {
 		logErr(w, r, http.StatusNotFound, nil)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 	if err != nil {
 		logErr(w, r, http.StatusNotFound, err)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 	logOK(r, "metadata found locally")

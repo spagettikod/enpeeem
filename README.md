@@ -44,7 +44,7 @@ Once you're done you can disconnect from the internet and keep serving your own 
 enpeeem ~/my_local_storage
 ```
 
-### Usage
+## Usage
 ```
 Local npm registry and proxy.
 
@@ -75,12 +75,12 @@ Flags:
         print version
 ```
 
-### Indexing
-enpeeem maintans package metadata files, these files are stored in each package folder as `metadata.json`.
+## Indexing
+enpeeem maintains package metadata files, these files are stored in each package folder as `metadata.json`.
 
 When running enpeeem as a proxy the package metadata is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
 
-### Manual indexing
+## Manual indexing
 If you remove or add tarballs manually you can trigger a manual reindexing by calling the endpoint `/api/index/<registry>/<package>`.
 
 Example:
@@ -110,8 +110,8 @@ You can also run enpeeem with the `-index-all` or `-index` flags to reindex all 
 
 When package metadata is reindexed it's content is syncronized with tarballs found in storage. New tarballs are added to metadata and tarballs no longer found in storage are removed from metadata. If you want to reeindex all tarballs forcefully you need to remove the `metadata.json` file(s).
 
-#### Auto-indexing
+### Auto-indexing
 If running in local mode, only serving local files, it reads the local metadata files. If there is no metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
 
-#### Indexing errors
+### Indexing errors
 If metadata can not be read from the tarball, for some reason, errors are logged to output. The metadata file is still created but without tarballs that could not be read.

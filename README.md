@@ -80,6 +80,7 @@ enpeeem maintans package metadata files, these files are stored in each package 
 
 When running enpeeem as a proxy the package metadata is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
 
+### Manual indexing
 If you remove or add tarballs manually you can trigger a manual reindexing by calling the endpoint `/api/index/<registry>/<package>`.
 
 Example:
@@ -89,7 +90,20 @@ curl -X POST localhost:8080/api/index/registry.npmjs.org/typescript
 
 or for scoped packages:
 ```
-curl -X POST localhost:8080/api/index/registry.npmjs.org/@types%2Freact
+curl -X POST 'localhost:8080/api/index/registry.npmjs.org/@types%2Freact'
+```
+
+By default the call is synchronous and will return when indexing is done. To make it asynchronous and start indexing in the background set the `async` query parameter to `true`.
+```
+curl -X POST 'localhost:8080/api/index/registry.npmjs.org/@types%2Freact?async=true'
+```
+
+The indexing API always responds with an empty body and one of the following HTTP status codes:
+```
+202 Accepted                  - Asynchronous indexing started, errors can be found in the log.
+204 No Content                - Synchronous indexing completed without any errors.
+429 Too Many Requests         - Package is currently being reindexed.
+500 Internal Server Error     - Unexpected error occured, check the log.
 ```
 
 You can also run enpeeem with the `-index-all` or `-index` flags to reindex all packages or a single package.
@@ -97,7 +111,7 @@ You can also run enpeeem with the `-index-all` or `-index` flags to reindex all 
 When package metadata is reindexed it's content is syncronized with tarballs found in storage. New tarballs are added to metadata and tarballs no longer found in storage are removed from metadata. If you want to reeindex all tarballs forcefully you need to remove the `metadata.json` file(s).
 
 #### Auto-indexing
-If running in local mode, only serving local files, it reads the local metadata files. If there is not metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
+If running in local mode, only serving local files, it reads the local metadata files. If there is no metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
 
 #### Indexing errors
 If metadata can not be read from the tarball, for some reason, errors are logged to output. The metadata file is still created but without tarballs that could not be read.

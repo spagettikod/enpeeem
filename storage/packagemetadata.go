@@ -25,15 +25,56 @@ func NewPackageMetadata(latestVersion, packageName string, versions map[string]i
 	}
 }
 
-func (pm *PackageMetadata) SetLatestVersion() {
+// PruneVersions takes a list of tarballs and validates their versions against versions found in the metadata.
+// Metadata versions not found in the list of tarballs are removed from the metadata file. Package metadata
+// latest version field is also updated to reflect the version list.
+func (pm *PackageMetadata) PruneVersions(tarballs []Tarball) {
+	pmVers := pm.VersionList()
+	for _, v := range pmVers {
+		tarballExists := slices.ContainsFunc(tarballs, func(t Tarball) bool {
+			return t.Version() == v
+		})
+		if !tarballExists {
+			delete(pm.Versions, v)
+		}
+	}
+	pm.SetLatestVersion()
+}
+
+// VersionList returns an array with all version numbers in the metadata.
+func (pm *PackageMetadata) VersionList() []string {
 	versions := []string{}
 	for k := range pm.Versions {
 		versions = append(versions, k)
 	}
+	return versions
+}
+
+// SetLatestVersion upates the metadata field pointing to the latest
+// stable version for this package.
+func (pm *PackageMetadata) SetLatestVersion() {
+	versions := pm.VersionList()
 	pm.DistTags["latest"] = latestStableVersion(versions)
 }
 
-func ParsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {
+// AddVersion unpacks and parses package.json metadata from raw tarball bytes and adds it
+// as a version to the package metadata. Package metadata latest version field is also
+// updated to reflect the new version.
+func (pm *PackageMetadata) AddVersion(tarball Tarball, data []byte) error {
+	pkgJson, err := tarball.PackageJsonFromTar(data)
+	if err != nil {
+		return fmt.Errorf("could not fetch package.json from tarball: %w", err)
+	}
+	verNo, version, err := parsePackageJson(tarball, pkgJson)
+	if err != nil {
+		return fmt.Errorf("could not parse package.json: %w", err)
+	}
+	pm.Versions[verNo] = version
+	pm.SetLatestVersion()
+	return nil
+}
+
+func parsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {
 	raw := map[string]interface{}{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return "", raw, err
@@ -43,7 +84,8 @@ func ParsePackageJson(tarball Tarball, data []byte) (string, map[string]interfac
 	return version, raw, nil
 }
 
-// LatestStableVersion returns the latest stable version from an array of semver versions.
+// latestStableVersion returns the latest stable version from an array
+// of semver versions.
 func latestStableVersion(versions []string) string {
 	if len(versions) == 0 {
 		return ""
@@ -70,6 +112,7 @@ func latestStableVersion(versions []string) string {
 	return vs[len(vs)-1].String()
 }
 
+// FetchPackageMetadataRemotely downloads package metadata from remote registry,
 func FetchPackageMetadataRemotely(pkg Package) ([]byte, error) {
 	resp, err := http.Get(pkg.RemoteURL())
 	if err != nil {

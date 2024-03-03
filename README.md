@@ -71,6 +71,12 @@ Flags:
 ```
 
 ### Indexing
-When running enpeeem as a proxy the index is automatically maintained. If enpeeem find tarballs but no metadata file it creates the metadata file and saves it to disk. This file is then used for consecutive requests. If it can not read all tarballs those that could be read are added to the metadata and returned, but the file is not saved. Check your application output to find tarballs that can not be read.
+enpeeem maintans package metadata files that are returned to package managers on request. These files are stored in each package folder as `metadata.json`.
 
-When you index a package with an existing metadata file only new files are added. Deleted tarballs are not removed from the metadata file. If you need to remove or re-index already indexed files you need to remove the metadata file and enpeeem will reindex it the next time it's requested.
+When running enpeeem as a proxy the index is automatically maintained. If new tarballs are requested and not found locally they are downloaded to local storage and the metadata file is reindexed with the new tarball.
+
+When a metadata file is reindexed only new files are added, nothing is ever removed. Deleted tarballs are not removed from the metadata file. If you need to remove or re-index already indexed files you need to remove the metadata file and enpeeem will reindex it the next time it's requested.
+
+#### Auto-indexing
+If running in local mode, only serving local files, it reads the local metadata files. If there is not metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
+When an error occurs during indexing of a tarball the metadata file is still created, without the erroneous tarball. The metadata file is then returned in the request but it's not saved for upcoming requests. The erroneous tarball is logged to output for you to follow up on.

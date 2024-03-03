@@ -106,12 +106,12 @@ The indexing API always responds with an empty body and one of the following HTT
 500 Internal Server Error     - Unexpected error occured, check the log.
 ```
 
-You can also run enpeeem with the `-index-all` or `-index` flags to reindex all packages or a single package.
+You can also run enpeeem with the `-index-all` or `-index` flags to reindex all packages or a single package from the command line.
 
-When package metadata is reindexed it's content is syncronized with tarballs found in storage. New tarballs are added to metadata and tarballs no longer found in storage are removed from metadata. If you want to reeindex all tarballs forcefully you need to remove the `metadata.json` file(s).
+When package metadata is reindexed it's content is syncronized with tarballs found in storage. New tarballs are added to metadata and tarballs no longer found in storage are removed from metadata. If you want to reeindex all tarballs forcefully you need to remove the `metadata.json` file.
 
 ### Auto-indexing
 If running in local mode, only serving local files, it reads the local metadata files. If there is no metadata file it checks for tarballs. If there are tarballs they are indexed and a metadata file is created and saved for upcoming requests.
 
 ### Indexing errors
-If metadata can not be read from the tarball, for some reason, errors are logged to output. The metadata file is still created but without tarballs that could not be read.
+If metadata can not be read from the tarball, for some reason, errors are logged to output. The metadata file is still created but without the tarballs that could not be read.

@@ -3,6 +3,7 @@ package main
 import (
 	"enpeeem/storage"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/schollz/progressbar/v3"
@@ -16,7 +17,9 @@ func reindexAll(store storage.Store) int {
 	var bar *progressbar.ProgressBar
 	wg := sync.WaitGroup{}
 	if progress {
-		bar = progressbar.Default(int64(len(pkgs)), "indexing packages")
+		bar = progressbar.NewOptions(len(pkgs), progressbar.OptionSetDescription("indexing packages"), progressbar.OptionSetWriter(os.Stdout), progressbar.OptionShowCount(), progressbar.OptionFullWidth())
+	} else {
+		bar = progressbar.DefaultSilent(int64(len(pkgs)))
 	}
 	exitCode := 0
 	for _, pkg := range pkgs {
@@ -26,9 +29,7 @@ func reindexAll(store storage.Store) int {
 				exitCode = 1
 			}
 			wg.Done()
-			if bar != nil {
-				bar.Add(1)
-			}
+			bar.Add(1)
 		}()
 	}
 	wg.Wait()

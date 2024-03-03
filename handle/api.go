@@ -28,6 +28,6 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Debug("package already being indexed", "pkg", pkg.String())
-	// returns HTTP 102 if package is already being indexed
-	http.Error(w, http.StatusText(http.StatusProcessing), http.StatusProcessing)
+	// returns HTTP 429 if package is already being indexed
+	http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 }

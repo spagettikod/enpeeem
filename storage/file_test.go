@@ -16,7 +16,7 @@ func TestFileVersion(t *testing.T) {
 		{PackageName: "create-vite", Filename: "create-vite-5.0.0", Expected: ""},
 		{PackageName: "create-vite", Filename: "create", Expected: ""},
 		{PackageName: "create-vite", Filename: "create-vite-5.0.0-beta.1.tgz", Expected: "5.0.0-beta.1"},
-		{PackageName: "@types/react", Filename: "react-0.0.0.tgz", Expected: "0.0.0"},
+		{PackageName: "react", Filename: "react-0.0.0.tgz", Expected: "0.0.0"},
 	}
 
 	for _, test := range tests {

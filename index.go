@@ -8,7 +8,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func reindexAll() int {
+func reindexAll(store storage.Store) int {
 	pkgs, err := store.Packages()
 	if err != nil {
 		slog.Error("failed to list packages", "cause", err)
@@ -22,7 +22,7 @@ func reindexAll() int {
 	for _, pkg := range pkgs {
 		wg.Add(1)
 		go func() {
-			if indexPackage(pkg) != 0 {
+			if indexPackage(store, pkg) != 0 {
 				exitCode = 1
 			}
 			wg.Done()
@@ -35,16 +35,16 @@ func reindexAll() int {
 	return exitCode
 }
 
-func reindexPackage(pkguri string) int {
+func reindexPackage(store storage.Store, pkguri string) int {
 	pkg, err := storage.PackageMetadataFromURI(pkguri)
 	if err != nil {
 		slog.Error("failed to parse package uri", "cause", err)
 		return 1
 	}
-	return indexPackage(pkg)
+	return indexPackage(store, pkg)
 }
 
-func indexPackage(pkg storage.Package) int {
+func indexPackage(store storage.Store, pkg storage.Package) int {
 	if _, err := store.Index(pkg); err != nil {
 		slog.Error("error indexing package", "cause", err, "package", pkg.String())
 		return 1

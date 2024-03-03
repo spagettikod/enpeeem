@@ -1,6 +1,8 @@
 package main
 
 import (
+	"enpeeem/config"
+	"enpeeem/handle"
 	"enpeeem/storage"
 	"flag"
 	"fmt"
@@ -18,9 +20,10 @@ var (
 	progress     bool
 	indexPkg     string
 	fetchAll     bool
-	store        storage.Store
+	verbose      bool
 	version      = "SET VERSION IN MAKEFILE"
 	printVersion bool
+	cfg          config.Config
 )
 
 func init() {
@@ -29,6 +32,7 @@ func init() {
 	flag.BoolVar(&indexAll, "index-all", false, "re-index all packages")
 	flag.BoolVar(&progress, "progress", false, "show progress where applicable")
 	flag.BoolVar(&printVersion, "version", false, "print version")
+	flag.BoolVar(&verbose, "verbose", false, "print debug information")
 	flag.BoolVar(&fetchAll, "fetch-all", false, "download all tarbal versions at once if a tarball is not found locally")
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
@@ -68,6 +72,12 @@ func parseArgs() {
 	storageDir = args[0]
 }
 
+func middleware(handler http.HandlerFunc) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, cfg.ToContext(r))
+	}
+}
+
 func main() {
 	parseArgs()
 
@@ -76,19 +86,31 @@ func main() {
 		os.Exit(0)
 	}
 
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	logLevel := slog.LevelInfo
+	if verbose {
+		logLevel = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
-	store = storage.NewFileStore(storageDir)
+	store := storage.NewFileStore(storageDir)
+	cfg = config.Config{
+		Registry:   registry,
+		Store:      store,
+		ProxyStash: proxystash,
+		FetchAll:   fetchAll,
+	}
+	// store = &storage.NewFileStore(storageDir)
 	if indexAll {
-		os.Exit(reindexAll())
+		os.Exit(reindexAll(store))
 	}
 	if indexPkg != "" {
-		os.Exit(reindexPackage(indexPkg))
+		os.Exit(reindexPackage(store, indexPkg))
 	}
 
-	http.HandleFunc("GET /{pkg}", packageMetadataHandler)
-	http.HandleFunc("GET /{pkg}/-/{tarball}", tarballHandler)
-	http.HandleFunc("GET /{scope}/{pkg}/-/{tarball}", tarballHandler)
+	http.HandleFunc("GET /{pkg}", middleware(handle.PackageMetadata))
+	http.HandleFunc("GET /{pkg}/-/{tarball}", middleware(handle.Tarball))
+	http.HandleFunc("GET /{scope}/{pkg}/-/{tarball}", middleware(handle.Tarball))
+	http.HandleFunc("POST /api/index/{registry}/{pkg}", middleware(handle.Index))
 	slog.Info("started enpeeem", "addr", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		slog.Error("server error", "cause", err)

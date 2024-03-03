@@ -48,9 +48,8 @@ enpeeem ~/my_local_storage
 ```
 Local npm registry and proxy.
 
-Packages are served from the given path. If the flag proxypath is set the
-request will be proxied to the remote registry and the result stored at
-the given path.
+Packages are served from the given path. Run in proxy mode to download from
+remote registry and save tarballs if they are not found locally at path.
 
 Usage:
   enpeeem [flags] <path>
@@ -67,7 +66,7 @@ Flags:
   -progress
         show progress where applicable
   -proxystash
-        proxy and download to storage if file is not available at storage path
+        run in proxy mode to proxy and download tarballs if not available locally
   -registry string
         remote npm registry to use when the flag proxystash is set (default "https://registry.npmjs.org")
   -verbose

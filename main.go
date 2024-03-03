@@ -35,16 +35,15 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "print debug information")
 	flag.BoolVar(&fetchAll, "fetch-all", false, "download all tarbal versions at once if a tarball is not found locally")
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
-	flag.BoolVar(&proxystash, "proxystash", false, "proxy and download to storage if file is not available at storage path")
+	flag.BoolVar(&proxystash, "proxystash", false, "run in proxy mode to proxy and download tarballs if not available locally")
 	flag.Usage = printUsage
 }
 
 func printUsage() {
 	fmt.Printf(`Local npm registry and proxy.
 	
-Packages are served from the given path. If the flag proxypath is set the
-request will be proxied to the remote registry and the result stored at
-the given path.
+Packages are served from the given path. Run in proxy mode to download from
+remote registry and save tarballs if they are not found locally at path.
 
 Usage:
   enpeeem [flags] <path>	

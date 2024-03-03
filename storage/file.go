@@ -18,23 +18,33 @@ const (
 )
 
 type FileStore struct {
-	dir string
+	dir     string
+	metadir string
 }
 
-func NewFileStore(dir string) *FileStore {
-	return &FileStore{dir: dir}
+func NewFileStore(dir, metadir string) *FileStore {
+	return &FileStore{dir: dir, metadir: metadir}
 }
 
-func (fstore FileStore) assetDir(registry, scope, pkg string) string {
-	return path.Join(fstore.dir, registry, scope, pkg)
+func (fstore FileStore) tarballDir(pkg Package) string {
+	return path.Join(fstore.dir, pkg.Registry, pkg.Scope, pkg.Name)
 }
 
-func (fstore FileStore) assetFilename(registry, scope, pkg, name string) string {
-	return path.Join(fstore.assetDir(registry, scope, pkg), name)
+func (fstore FileStore) tarballFilename(tarball Tarball) string {
+	return path.Join(fstore.tarballDir(tarball.Package()), tarball.Name)
 }
+
+func (fstore FileStore) packageDir(pkg Package) string {
+	return path.Join(fstore.metadir, pkg.Registry, pkg.Scope, pkg.Name)
+}
+
+func (fstore FileStore) packageFilename(pkg Package) string {
+	return path.Join(fstore.packageDir(pkg), PackageMetadataAssetName)
+}
+
 func (fstore FileStore) PutPackage(pkg Package, data []byte) error {
-	dir := fstore.assetDir(pkg.Registry, pkg.Scope, pkg.Name)
-	file := fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName)
+	dir := fstore.packageDir(pkg)
+	file := fstore.packageFilename(pkg)
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
@@ -42,8 +52,8 @@ func (fstore FileStore) PutPackage(pkg Package, data []byte) error {
 }
 
 func (fstore FileStore) PutTarball(tarball Tarball, data []byte) error {
-	dir := fstore.assetDir(tarball.Package().Registry, tarball.Package().Scope, tarball.Package().Name)
-	file := fstore.assetFilename(tarball.Package().Registry, tarball.Package().Scope, tarball.Package().Name, tarball.Name)
+	dir := fstore.tarballDir(tarball.Package())
+	file := fstore.tarballFilename(tarball)
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
@@ -51,7 +61,7 @@ func (fstore FileStore) PutTarball(tarball Tarball, data []byte) error {
 }
 
 func (fstore FileStore) GetPackageMetadata(pkg Package) ([]byte, error) {
-	filename := fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName)
+	filename := fstore.packageFilename(pkg)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -62,7 +72,7 @@ func (fstore FileStore) GetPackageMetadata(pkg Package) ([]byte, error) {
 }
 
 func (fstore FileStore) GetTarball(tarball Tarball) ([]byte, error) {
-	data, err := os.ReadFile(fstore.assetFilename(tarball.Package().Registry, tarball.Package().Scope, tarball.Package().Name, tarball.Name))
+	data, err := os.ReadFile(fstore.tarballFilename(tarball))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return data, ErrNotFound
@@ -105,7 +115,7 @@ func (fstore FileStore) Packages() ([]Package, error) {
 
 func (fstore FileStore) Tarballs(pkg Package) ([]Tarball, error) {
 	tarballs := []Tarball{}
-	root := os.DirFS(fstore.assetDir(pkg.Registry, pkg.Scope, pkg.Name))
+	root := os.DirFS(fstore.tarballDir(pkg))
 	files, err := fs.Glob(root, "*.tgz")
 	if err != nil {
 		return tarballs, err
@@ -166,8 +176,12 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 	if err != nil {
 		return pm, err
 	}
-	slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName))
-	return pm, os.WriteFile(fstore.assetFilename(pkg.Registry, pkg.Scope, pkg.Name, PackageMetadataAssetName), jb, 0644)
+	slog.Debug("create directory if not exists", "pkg", pkg.String(), "dir", fstore.packageDir(pkg))
+	if err := os.MkdirAll(fstore.packageDir(pkg), 0750); err != nil {
+		return pm, err
+	}
+	slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.packageFilename(pkg))
+	return pm, os.WriteFile(fstore.packageFilename(pkg), jb, 0644)
 }
 
 func fileVersion(pkgName, filename string) string {

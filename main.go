@@ -12,18 +12,19 @@ import (
 )
 
 var (
+	addr         string
+	cfg          config.Config
+	fetchAll     bool
+	indexAll     bool
+	indexPkg     string
+	metadir      string
+	printVersion bool
+	progress     bool
+	proxystash   bool
 	registry     string
 	storageDir   string
-	addr         string
-	proxystash   bool
-	indexAll     bool
-	progress     bool
-	indexPkg     string
-	fetchAll     bool
 	verbose      bool
 	version      = "SET VERSION IN MAKEFILE"
-	printVersion bool
-	cfg          config.Config
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 	flag.BoolVar(&fetchAll, "fetch-all", false, "download all tarbal versions at once if a tarball is not found locally")
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "run in proxy mode to proxy and download tarballs if not available locally")
+	flag.StringVar(&metadir, "metadir", "", "metadata file directory, by default files are stored together with the tarballs")
 	flag.Usage = printUsage
 }
 
@@ -91,7 +93,11 @@ func main() {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
-	store := storage.NewFileStore(storageDir)
+	// if metadir is not set we store metadata with tarballs
+	if metadir == "" {
+		metadir = storageDir
+	}
+	store := storage.NewFileStore(storageDir, metadir)
 	cfg = config.Config{
 		Registry:   registry,
 		Store:      store,

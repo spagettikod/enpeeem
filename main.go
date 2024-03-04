@@ -18,6 +18,7 @@ var (
 	indexAll     bool
 	indexPkg     string
 	metadir      string
+	pkgthreads   int
 	printVersion bool
 	progress     bool
 	proxystash   bool
@@ -31,15 +32,16 @@ var (
 func init() {
 	flag.StringVar(&addr, "addr", ":8080", "network address of local registry")
 	flag.StringVar(&registry, "registry", "https://registry.npmjs.org", "remote npm registry to use when the flag proxystash is set")
-	flag.BoolVar(&indexAll, "index-all", false, "re-index all packages")
+	flag.BoolVar(&indexAll, "index-all", false, "index all packages")
 	flag.BoolVar(&progress, "progress", false, "show progress where applicable")
 	flag.BoolVar(&printVersion, "version", false, "print version")
 	flag.BoolVar(&verbose, "verbose", false, "print debug information")
 	flag.BoolVar(&fetchAll, "fetch-all", false, "download all tarbal versions at once if a tarball is not found locally")
-	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
+	flag.StringVar(&indexPkg, "index", "", "index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "run in proxy mode to proxy and download tarballs if not available locally")
 	flag.StringVar(&metadir, "metadir", "", "metadata file directory, by default files are stored together with the tarballs")
 	flag.StringVar(&urltemplate, "urltemplate", "", "Go template to rewrite tarball URL's in package metadata requests")
+	flag.IntVar(&pkgthreads, "pkgthreads", 5, "number of packages to process at the same time when indexing all packages")
 	flag.Usage = printUsage
 }
 
@@ -115,9 +117,9 @@ func main() {
 		slog.Error("error creating config, exiting: %w", err)
 		os.Exit(1)
 	}
-	// store = &storage.NewFileStore(storageDir)
+
 	if indexAll {
-		os.Exit(reindexAll(store))
+		os.Exit(reindexAll(store, pkgthreads))
 	}
 	if indexPkg != "" {
 		os.Exit(reindexPackage(store, indexPkg))

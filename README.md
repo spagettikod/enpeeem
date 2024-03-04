@@ -60,11 +60,13 @@ Flags:
   -fetch-all
         download all tarbal versions at once if a tarball is not found locally
   -index string
-        re-index with given package URI, example registry.npmjs.org/@types/react
+        index with given package URI, example registry.npmjs.org/@types/react
   -index-all
-        re-index all packages
+        index all packages
   -metadir string
         metadata file directory, by default files are stored together with the tarballs
+  -pkgthreads int
+        number of packages to process at the same time when indexing all packages (default 5)
   -progress
         show progress where applicable
   -proxystash

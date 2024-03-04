@@ -4,6 +4,7 @@ go 1.22.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/alitto/pond v1.8.3
 	github.com/schollz/progressbar/v3 v3.14.2
 )
 

@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
+
+	"github.com/alitto/pond"
 )
 
 const (
@@ -165,18 +168,28 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 
 	slog.Debug("unindexed tarballs", "tarballs", len(tarballs), "pkg", pkg.String())
 
+	pool := pond.New(5, 0)
+	mux := sync.Mutex{}
 	for _, tarball := range tarballs {
-		slog.Debug("loading tarball", "tarball", tarball.String(), "pkg", pkg.String())
-		data, err := fstore.GetTarball(tarball)
-		if err != nil {
-			slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
-			continue
-		}
-		if err := pkmt.AddVersion(tarball, data); err != nil {
-			slog.Error("error parsing tarball, skipping", "tarball", tarball.String(), "error", err)
-			continue
-		}
+		pool.Submit(func() {
+			slog.Debug("loading tarball", "tarball", tarball.String(), "pkg", pkg.String())
+			data, err := fstore.GetTarball(tarball)
+			if err != nil {
+				slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
+				return
+			}
+			verNo, pkgjson, err := pkmt.ParsePackageJson(tarball, data)
+			if err != nil {
+				slog.Error("could not parse package.json", "tarball", tarball.String(), "error", err)
+				return
+			}
+			mux.Lock()
+			defer mux.Unlock()
+			pkmt.Versions[verNo] = pkgjson
+			pkmt.SetLatestVersion()
+		})
 	}
+	pool.StopAndWait()
 	jb, err := json.MarshalIndent(pkmt, "", "   ")
 	if err != nil {
 		return pkmt, err

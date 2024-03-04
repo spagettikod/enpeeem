@@ -1,6 +1,9 @@
 # github.com/Masterminds/semver/v3 v3.2.1
 ## explicit; go 1.18
 github.com/Masterminds/semver/v3
+# github.com/alitto/pond v1.8.3
+## explicit; go 1.19
+github.com/alitto/pond
 # github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
 ## explicit
 github.com/mitchellh/colorstring

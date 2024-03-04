@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"sort"
+	"text/template"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -55,6 +56,28 @@ func (pm *PackageMetadata) VersionList() []string {
 func (pm *PackageMetadata) SetLatestVersion() {
 	versions := pm.VersionList()
 	pm.DistTags["latest"] = latestStableVersion(versions)
+}
+
+func (pm *PackageMetadata) RewriteURLs(tmpl *template.Template) error {
+	newvers := map[string]interface{}{}
+	fmt.Println(len(pm.Versions))
+	for k, v := range pm.Versions {
+		version := v.(map[string]interface{})
+		dist := version["dist"].(map[string]interface{})
+		tbl, err := TarballFromURI(dist["tarball"].(string))
+		if err != nil {
+			return err
+		}
+		nurl, err := tbl.RewrittenURL(tmpl)
+		if err != nil {
+			return err
+		}
+		v.(map[string]interface{})["dist"] = map[string]string{"tarball": nurl}
+		newvers[k] = v
+	}
+
+	pm.Versions = newvers
+	return nil
 }
 
 // AddVersion unpacks and parses package.json metadata from raw tarball bytes and adds it

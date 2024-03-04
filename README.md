@@ -63,12 +63,16 @@ Flags:
         re-index with given package URI, example registry.npmjs.org/@types/react
   -index-all
         re-index all packages
+  -metadir string
+        metadata file directory, by default files are stored together with the tarballs
   -progress
         show progress where applicable
   -proxystash
         run in proxy mode to proxy and download tarballs if not available locally
   -registry string
         remote npm registry to use when the flag proxystash is set (default "https://registry.npmjs.org")
+  -urltemplate string
+        Go template to rewrite tarball URL's in package metadata requests
   -verbose
         print debug information
   -version

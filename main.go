@@ -22,6 +22,7 @@ var (
 	progress     bool
 	proxystash   bool
 	registry     string
+	urltemplate  string
 	storageDir   string
 	verbose      bool
 	version      = "SET VERSION IN MAKEFILE"
@@ -38,6 +39,7 @@ func init() {
 	flag.StringVar(&indexPkg, "index", "", "re-index with given package URI, example registry.npmjs.org/@types/react")
 	flag.BoolVar(&proxystash, "proxystash", false, "run in proxy mode to proxy and download tarballs if not available locally")
 	flag.StringVar(&metadir, "metadir", "", "metadata file directory, by default files are stored together with the tarballs")
+	flag.StringVar(&urltemplate, "urltemplate", "", "Go template to rewrite tarball URL's in package metadata requests")
 	flag.Usage = printUsage
 }
 
@@ -73,9 +75,18 @@ func parseArgs() {
 	storageDir = args[0]
 }
 
-func middleware(handler http.HandlerFunc) func(w http.ResponseWriter, r *http.Request) {
+func middleware(handler func(w http.ResponseWriter, r *http.Request) (int, error)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.ServeHTTP(w, cfg.ToContext(r))
+		status, err := handler(w, cfg.ToContext(r))
+		if err == nil {
+			return
+		}
+		if status < 500 {
+			slog.Info("request failed", "method", r.Method, "url", r.URL, "http_status", status, "error", err)
+		} else {
+			slog.Error("error occurred", "method", r.Method, "url", r.URL, "http_status", status, "error", err)
+		}
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -98,11 +109,11 @@ func main() {
 		metadir = storageDir
 	}
 	store := storage.NewFileStore(storageDir, metadir)
-	cfg = config.Config{
-		Registry:   registry,
-		Store:      store,
-		ProxyStash: proxystash,
-		FetchAll:   fetchAll,
+	var err error
+	cfg, err = config.New(store, registry, urltemplate, proxystash, fetchAll)
+	if err != nil {
+		slog.Error("error creating config, exiting: %w", err)
+		os.Exit(1)
 	}
 	// store = &storage.NewFileStore(storageDir)
 	if indexAll {

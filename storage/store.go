@@ -9,7 +9,8 @@ var (
 )
 
 type Store interface {
-	GetPackageMetadata(Package) ([]byte, error)
+	GetPackageMetadata(Package) (PackageMetadata, error)
+	GetPackageMetadataRaw(Package) ([]byte, error)
 	PutPackage(Package, []byte) error
 	PutTarball(Tarball, []byte) error
 	Packages() ([]Package, error)

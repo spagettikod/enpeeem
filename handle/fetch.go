@@ -2,13 +2,14 @@ package handle
 
 import (
 	"encoding/json"
+	"enpeeem/config"
 	"enpeeem/storage"
 	"log/slog"
 	"path"
 	"slices"
 )
 
-func FetchAll(store storage.Store, pkg storage.Package, packageMetadata []byte) error {
+func FetchAll(cfg config.Config, pkg storage.Package, packageMetadata []byte) error {
 	type PackageMetadata struct {
 		Versions map[string]struct {
 			Dist struct {
@@ -21,7 +22,7 @@ func FetchAll(store storage.Store, pkg storage.Package, packageMetadata []byte) 
 	if err != nil {
 		return err
 	}
-	existingTarballs, err := store.Tarballs(pkg)
+	existingTarballs, err := cfg.Store.Tarballs(pkg)
 	if err != nil {
 		return err
 	}
@@ -35,17 +36,17 @@ func FetchAll(store storage.Store, pkg storage.Package, packageMetadata []byte) 
 		}
 
 		slog.Info("downloading tarball", "url", tarball.RemoteURL())
-		if err := fetchAndSave(store, tarball); err != nil {
+		if err := fetchAndSave(cfg, tarball); err != nil {
 			slog.Error("failed to download tarball", "cause", err, "url", tarball.RemoteURL())
 		}
 	}
 	return nil
 }
 
-func fetchAndSave(store storage.Store, tarball storage.Tarball) error {
+func fetchAndSave(cfg config.Config, tarball storage.Tarball) error {
 	data, err := tarball.FetchRemotely()
 	if err != nil {
 		return err
 	}
-	return store.PutTarball(tarball, data)
+	return cfg.Store.PutTarball(tarball, data)
 }

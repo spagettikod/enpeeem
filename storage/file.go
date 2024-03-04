@@ -60,7 +60,7 @@ func (fstore FileStore) PutTarball(tarball Tarball, data []byte) error {
 	return os.WriteFile(file, data, 0644)
 }
 
-func (fstore FileStore) GetPackageMetadata(pkg Package) ([]byte, error) {
+func (fstore FileStore) GetPackageMetadataRaw(pkg Package) ([]byte, error) {
 	filename := fstore.packageFilename(pkg)
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -69,6 +69,16 @@ func (fstore FileStore) GetPackageMetadata(pkg Package) ([]byte, error) {
 		}
 	}
 	return data, err
+}
+
+func (fstore FileStore) GetPackageMetadata(pkg Package) (PackageMetadata, error) {
+	pkmt := PackageMetadata{}
+	raw, err := fstore.GetPackageMetadataRaw(pkg)
+	if err != nil {
+		return pkmt, err
+	}
+	err = json.Unmarshal(raw, &pkmt)
+	return pkmt, err
 }
 
 func (fstore FileStore) GetTarball(tarball Tarball) ([]byte, error) {
@@ -134,27 +144,22 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 	}
 
 	slog.Debug("number of tarballs found", "tarballs", len(tarballs), "pkg", pkg.String())
-	pm := PackageMetadata{}
-	pkmdata, err := fstore.GetPackageMetadata(pkg)
+	pkmt, err := fstore.GetPackageMetadata(pkg)
 	if err != nil {
 		if !errors.Is(err, ErrNotFound) {
-			return pm, fmt.Errorf("error opening existing package metadata file for %s: %w", pkg.String(), err)
+			return pkmt, fmt.Errorf("error opening existing package metadata file for %s: %w", pkg.String(), err)
 		}
 		slog.Debug("creating new package metadata, existing not found", "pkg", pkg.String())
-		pm = NewPackageMetadata("", pkg.Name, map[string]interface{}{})
+		pkmt = NewPackageMetadata("", pkg.Name, map[string]interface{}{})
 	} else {
-		slog.Debug("unmarshaling existing package metadata", "pkg", pkg.String())
-		if err := json.Unmarshal(pkmdata, &pm); err != nil {
-			return pm, fmt.Errorf("error unmarshaling package metadata file for %s: %w", pkg.String(), err)
-		}
 		// remove metadata for tarballs that no longer exist on disk
-		pm.PruneVersions(tarballs)
+		pkmt.PruneVersions(tarballs)
 	}
 
 	// we don't need to process tarballs already indexed in the package metadata file
 	tarballs = slices.DeleteFunc(tarballs, func(tarball Tarball) bool {
 		v := fileVersion(pkg.Name, tarball.Name)
-		_, found := pm.Versions[v]
+		_, found := pkmt.Versions[v]
 		return found
 	})
 
@@ -167,21 +172,21 @@ func (fstore FileStore) Index(pkg Package) (PackageMetadata, error) {
 			slog.Error("could not load tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
-		if err := pm.AddVersion(tarball, data); err != nil {
+		if err := pkmt.AddVersion(tarball, data); err != nil {
 			slog.Error("error parsing tarball, skipping", "tarball", tarball.String(), "error", err)
 			continue
 		}
 	}
-	jb, err := json.MarshalIndent(pm, "", "   ")
+	jb, err := json.MarshalIndent(pkmt, "", "   ")
 	if err != nil {
-		return pm, err
+		return pkmt, err
 	}
 	slog.Debug("create directory if not exists", "pkg", pkg.String(), "dir", fstore.packageDir(pkg))
 	if err := os.MkdirAll(fstore.packageDir(pkg), 0750); err != nil {
-		return pm, err
+		return pkmt, err
 	}
 	slog.Debug("writing new package metadata file", "pkg", pkg.String(), "file", fstore.packageFilename(pkg))
-	return pm, os.WriteFile(fstore.packageFilename(pkg), jb, 0644)
+	return pkmt, os.WriteFile(fstore.packageFilename(pkg), jb, 0644)
 }
 
 func fileVersion(pkgName, filename string) string {

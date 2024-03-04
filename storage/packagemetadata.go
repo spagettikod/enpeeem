@@ -80,21 +80,14 @@ func (pm *PackageMetadata) RewriteURLs(tmpl *template.Template) error {
 	return nil
 }
 
-// AddVersion unpacks and parses package.json metadata from raw tarball bytes and adds it
-// as a version to the package metadata. Package metadata latest version field is also
-// updated to reflect the new version.
-func (pm *PackageMetadata) AddVersion(tarball Tarball, data []byte) error {
+// ParsePackageJson unpacks and parses package.json metadata from raw tarball bytes. It
+// returns the semantic version name, the raw json map or an error if something failed.
+func (pm *PackageMetadata) ParsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {
 	pkgJson, err := tarball.PackageJsonFromTar(data)
 	if err != nil {
-		return fmt.Errorf("could not fetch package.json from tarball: %w", err)
+		return "", nil, fmt.Errorf("could not fetch package.json from tarball: %w", err)
 	}
-	verNo, version, err := parsePackageJson(tarball, pkgJson)
-	if err != nil {
-		return fmt.Errorf("could not parse package.json: %w", err)
-	}
-	pm.Versions[verNo] = version
-	pm.SetLatestVersion()
-	return nil
+	return parsePackageJson(tarball, pkgJson)
 }
 
 func parsePackageJson(tarball Tarball, data []byte) (string, map[string]interface{}, error) {

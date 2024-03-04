@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 var ErrParseTarball = errors.New("parse error")
@@ -28,7 +29,11 @@ func NewTarball(pkg Package, name string) Tarball {
 }
 
 // TarballFromURI parses an uri and returns a Tarball object without data. For example registry.npmjs.org/@babel/parser/parser-7.24.0.tgz.
+// Also parses URL's like http://registry.npmjs.org/@babel/parser/-/parser-7.24.0.tgz.
 func TarballFromURI(uri string) (Tarball, error) {
+	uri = strings.TrimPrefix(uri, "https://")
+	uri = strings.TrimPrefix(uri, "http://")
+	uri = strings.ReplaceAll(uri, "/-/", "/")
 	els := strings.Split(uri, string(filepath.Separator))
 	if len(els) < 3 || len(els) > 4 {
 		return Tarball{}, fmt.Errorf("%w: could not parse path %s as Tarball", ErrParseTarball, uri)
@@ -89,6 +94,14 @@ func (tarball Tarball) Package() Package {
 func (tarball Tarball) RemoteURL() string {
 	remoteURL, _ := url.JoinPath("https://", tarball.pkg.Registry, tarball.pkg.Scope, tarball.pkg.Name, "-", tarball.Name)
 	return remoteURL
+}
+
+func (tarball Tarball) RewrittenURL(tmpl *template.Template) (string, error) {
+	var bldr strings.Builder
+	if err := tmpl.Execute(&bldr, tarball); err != nil {
+		return "", err
+	}
+	return bldr.String(), nil
 }
 
 func (tarball Tarball) Version() string {

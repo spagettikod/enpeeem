@@ -1,6 +1,9 @@
 package storage
 
-import "testing"
+import (
+	"testing"
+	"text/template"
+)
 
 func TestString(t *testing.T) {
 	type Test struct {
@@ -92,6 +95,48 @@ func TestTarballFromURI(t *testing.T) {
 				Name: "parser-7.24.0.tgz",
 			},
 		},
+		{
+			Test: "https://registry.npmjs.org/ansi-styles/ansi-styles-3.2.1.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "", Name: "ansi-styles"},
+				Name: "ansi-styles-3.2.1.tgz",
+			},
+		},
+		{
+			Test: "https://registry.npmjs.org/@babel/parser/parser-7.24.0.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "@babel", Name: "parser"},
+				Name: "parser-7.24.0.tgz",
+			},
+		},
+		{
+			Test: "http://registry.npmjs.org/ansi-styles/ansi-styles-3.2.1.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "", Name: "ansi-styles"},
+				Name: "ansi-styles-3.2.1.tgz",
+			},
+		},
+		{
+			Test: "http://registry.npmjs.org/@babel/parser/parser-7.24.0.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "@babel", Name: "parser"},
+				Name: "parser-7.24.0.tgz",
+			},
+		},
+		{
+			Test: "http://registry.npmjs.org/ansi-styles/-/ansi-styles-3.2.1.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "", Name: "ansi-styles"},
+				Name: "ansi-styles-3.2.1.tgz",
+			},
+		},
+		{
+			Test: "http://registry.npmjs.org/@babel/parser/-/parser-7.24.0.tgz",
+			Expected: Tarball{
+				pkg:  Package{Registry: "registry.npmjs.org", Scope: "@babel", Name: "parser"},
+				Name: "parser-7.24.0.tgz",
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -110,6 +155,54 @@ func TestTarballFromURI(t *testing.T) {
 		}
 		if test.Expected.Name != actual.Name {
 			t.Errorf("%s, expected name %s but got %s", test.Test, test.Expected.Name, actual.Name)
+		}
+	}
+}
+
+func TestRewrittenURL(t *testing.T) {
+	type Test struct {
+		Test        string
+		Registry    string
+		Scope       string
+		PackageName string
+		TarballName string
+		Expected    string
+	}
+	tests := []Test{
+		{
+			Test:        "https://{{.Package.Registry}}/{{if .Package.Scope}}{{.Package.Scope}}/{{end}}{{.Package.Name}}/-/{{.Name}}",
+			Registry:    "registry.npmjs.org",
+			Scope:       "@types",
+			PackageName: "react",
+			TarballName: "react-18.0.0.tgz",
+			Expected:    "https://registry.npmjs.org/@types/react/-/react-18.0.0.tgz",
+		},
+		{
+			Test:        "https://{{.Package.Registry}}/{{if .Package.Scope}}{{.Package.Scope}}/{{end}}{{.Package.Name}}/-/{{.Name}}",
+			Registry:    "registry.npmjs.org",
+			Scope:       "",
+			PackageName: "create-vite",
+			TarballName: "create-vite-5.0.0.tgz",
+			Expected:    "https://registry.npmjs.org/create-vite/-/create-vite-5.0.0.tgz",
+		},
+	}
+
+	for _, test := range tests {
+		pkg, err := NewPackage(test.Registry, test.Scope, test.PackageName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tbl := NewTarball(pkg, test.TarballName)
+		tmpl, err := template.New("rewrite").Parse(test.Test)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nurl, err := tbl.RewrittenURL(tmpl)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if nurl != test.Expected {
+			t.Errorf("expected %s but got %s", test.Expected, nurl)
 		}
 	}
 }

@@ -8,68 +8,35 @@ import (
 	"net/http"
 )
 
-func Tarball(w http.ResponseWriter, r *http.Request) {
+func Tarball(w http.ResponseWriter, r *http.Request) (int, error) {
 	cfg := config.FromContext(r)
 	pkg, err := storage.NewPackage(cfg.Registry, r.PathValue("scope"), r.PathValue("pkg"))
 	if err != nil {
-		logErr(w, r, http.StatusInternalServerError, err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		return http.StatusInternalServerError, err
 	}
 	tarball := storage.NewTarball(pkg, r.PathValue("tarball"))
 	data, err := cfg.Store.GetTarball(tarball)
 	if errors.Is(err, storage.ErrNotFound) {
 		if !cfg.ProxyStash {
-			logErr(w, r, http.StatusNotFound, nil)
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-			return
+			return http.StatusNotFound, nil
 		}
 		data, err = tarball.FetchRemotely()
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				logErr(w, r, http.StatusNotFound, nil)
-				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-				return
+				return http.StatusNotFound, nil
 			}
-			logErr(w, r, http.StatusInternalServerError, err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			return http.StatusInternalServerError, err
 		}
 		if err := cfg.Store.PutTarball(tarball, data); err != nil {
-			logErr(w, r, http.StatusInternalServerError, err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			return http.StatusInternalServerError, err
 		}
 		if _, err := cfg.Store.Index(pkg); err != nil {
-			logErr(w, r, http.StatusInternalServerError, err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			return http.StatusInternalServerError, err
 		}
-		logOK(r, "tarball fetched remotely")
+		slog.Debug("tarball fetched remotely", "method", r.Method, "url", r.URL, "http_status", http.StatusOK)
 	} else {
-		logOK(r, "tarball found locally")
+		slog.Debug("tarball found locally", "method", r.Method, "url", r.URL, "http_status", http.StatusOK)
 	}
 	w.Write(data)
-}
-
-/*
-
-===============================================================================
-
-UTILS
-
-===============================================================================
-
-*/
-
-func logOK(r *http.Request, msg string) {
-	slog.Debug(msg, "method", r.Method, "url", r.URL, "http_status", http.StatusOK)
-}
-
-func logErr(w http.ResponseWriter, r *http.Request, status int, err error) {
-	if err != nil {
-		slog.Error("error occurred", "method", r.Method, "url", r.URL, "http_status", status, "cause", err)
-	} else {
-		slog.Error("failed request", "method", r.Method, "url", r.URL, "http_status", status)
-	}
+	return http.StatusOK, nil
 }

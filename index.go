@@ -4,35 +4,33 @@ import (
 	"enpeeem/storage"
 	"log/slog"
 	"os"
-	"sync"
 
+	"github.com/alitto/pond"
 	"github.com/schollz/progressbar/v3"
 )
 
-func reindexAll(store storage.Store) int {
+func reindexAll(store storage.Store, pkgthreads int) int {
 	pkgs, err := store.Packages()
 	if err != nil {
 		slog.Error("failed to list packages", "cause", err)
 	}
 	var bar *progressbar.ProgressBar
-	wg := sync.WaitGroup{}
 	if progress {
 		bar = progressbar.NewOptions(len(pkgs), progressbar.OptionSetDescription("indexing packages"), progressbar.OptionSetWriter(os.Stdout), progressbar.OptionShowCount(), progressbar.OptionFullWidth())
 	} else {
 		bar = progressbar.DefaultSilent(int64(len(pkgs)))
 	}
 	exitCode := 0
+	pool := pond.New(pkgthreads, 0)
 	for _, pkg := range pkgs {
-		wg.Add(1)
-		go func() {
+		pool.Submit(func() {
 			if indexPackage(store, pkg) != 0 {
 				exitCode = 1
 			}
-			wg.Done()
 			bar.Add(1)
-		}()
+		})
 	}
-	wg.Wait()
+	pool.StopAndWait()
 	return exitCode
 }
 
